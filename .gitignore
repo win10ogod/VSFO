@@ -1,0 +1,15 @@
+model_0.bin
+model_1.bin
+pytorch_model.bin
+model.bin
+split.ipynb
+decode.ipynb
+upload.py
+results/
+vocab.json
+model_en.bin
+model_zh.bin
+__pycache__
+transfer.py
+word_frequency.json
+word_frequency_en.json
