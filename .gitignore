@@ -13,3 +13,4 @@ __pycache__
 transfer.py
 word_frequency.json
 word_frequency_en.json
+figs/*.png
