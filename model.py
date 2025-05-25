@@ -43,9 +43,9 @@ class BraLM(nn.Module):
         self.node_bias = nn.Parameter(torch.randn(len(vocab.edge_dict), 1, self.hidden_size).uniform_(-0.5, 0.5))
 
     def to_device(self, device):
-        self.weights.to(device)
-        self.biases.to(device)
-        self.node_bias.to(device)
+        self.weights.data = self.weights.data.to(device)
+        self.biases.data = self.biases.data.to(device)
+        self.node_bias.data = self.node_bias.data.to(device)
         self.positions.data = self.positions.data.to(device)
         self.device = device
 
