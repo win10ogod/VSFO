@@ -1,193 +1,91 @@
-# BriLLM: Brain-inspired Large Language Model
+# V-SiFu: Variational Signal-in-Full-flow
 
-We release BriLLM-Chinese and BriLLM-English.
+This repository implements **V-SiFu** – a brain-inspired, variational
+transport–attention model for next-vector generation.  The code mirrors the
+mathematical construction described in the accompanying research note:
 
-Our paper: https://arxiv.org/pdf/2503.11299
+1. **Variational workspace (VAE)** compresses the observable signal history.
+2. **Variational Entropic Transport Attention (VETA)** aligns the source
+   signal distribution with latent-conditioned target priors through an
+   entropic optimal transport plan solved by Sinkhorn iterations.
+3. **Next-vector synthesis** aggregates transported edge transforms and
+   projects the resulting energy onto the reachable subspace, yielding a
+   continuous semantic vector that can be decoded back to discrete nodes.
 
-Our Github: https://github.com/brillm05/BriLLM0.5
+The implementation retains the brain-inspired static semantic mapping of
+SiFu/BriLLM while decoupling attention computation from sequence length.
 
-Our huggingface: https://huggingface.co/BriLLM/BriLLM0.5
+## Repository layout
 
+| File / folder | Description |
+| --- | --- |
+| `model.py` | Modular PyTorch implementation of V-SiFu (VAE, VETA, energy projection). |
+| `train.py` | Synthetic training loop illustrating the VSFO objective. |
+| `infer_en.py`, `infer_zh.py` | Convenience scripts for running inference with trained checkpoints. |
+| `run_en.sh`, `run_zh.sh` | Example commands for training on synthetic English/Chinese vocabularies. |
+| `figs/` | Figures from the original BriLLM/SiFu description (for reference). |
+| `vocab_*.json` | Example vocabularies used to instantiate the brain-style node graph. |
 
-## Overview
+## Quick start
 
-BriLLM redefines the foundations of generative language modeling by departing from Transformer architectures, GPT frameworks, and traditional input-output constrained paradigms. Built on the Signal Fully-connected flowing (SiFu) mechanism—a directed graph-based neural network design—BriLLM enables full interpretability across all nodes, in contrast to conventional models limited to input-output interpretability.
+Install PyTorch first (`pip install torch`).  Then train a synthetic model:
 
-In this framework, tokens are represented as graph nodes, with signal flows—either randomly initialized or user-defined—propagating along paths following a "least resistance" principle. The next token to be generated emerges as the target of this signal flow. Theoretically, BriLLM supports infinitely long n-gram modeling, with model size decoupled from input and prediction length. Its signal propagation dynamics mimic human-like cognitive patterns, enabling recall activation and inherent multi-modal compatibility.
-
-![](./figs/tab1.png)
-
-
-## SiFu Mechanism
-
-![](./figs/fig1.png)
-
-The SiFu (Signal Fully-connected Flowing) mechanism addresses fundamental limitations of current machine learning frameworks. Unlike traditional models that process discrete input streams through opaque computations, SiFu operates on a fully connected directed graph where:
-
-- Each node represents an interpretable unit (token, concept, etc.)
-- Signal tensors propagate through the graph following energy dynamics
-- The next token is determined by maximizing signal energy
-- All nodes can serve as both input and output interfaces
-
-![](./figs/fig2.png)
-
-Signal propagation follows the principle:
-$v_i = \arg\max_{v'} \left\| r \oplus v_1 \otimes e_{12} \oplus v_2 \ldots \oplus v' \right\|$
-
-where $\oplus$ and $\otimes$ denote tensor operations for node and edge interactions, and $\|\cdot\|$ represents signal energy.
-
-Overall, SiFu's design as a directed fully connected graph with signal propagation confers two key advantages:
-1. **Inherent full interpretability**: User-defined entities (concepts, tokens, or interpretable units) map directly to specific graph nodes;
-2. **Unbounded contextual capacity**: Prediction is framed as signal propagation through node activations. Because signals propagate freely across nodes, sequence prediction naturally supports arbitrarily long contexts without increasing model size. 
-
-
-## Architecture
-
-![](./figs/fig3.png)
-
-BriLLM implements the SiFu mechanism where each vocabulary token corresponds to a node defined by a GeLU-activated neuron layer with bias $b \in \mathbb{R}^{d_{node}}$. Edges between nodes are modeled as fully connected matrices $W_{u,v} \in \mathbb{R}^{d_{node} \times d_{node}}$, enabling bidirectional signaling.
-
-Signal propagation begins with initial tensor $e_0 = [1, 1, \ldots, 1]^T \in \mathbb{R}^{d_{node}}$ and follows:
-
-$e_{i+1} = \text{GeLU}(W_{u_i,u_{i+1}} e_i + b_{u_i,u_{i+1}} + PE_i)$
-
-The final prediction maximizes the L2 norm: $v_{predict} = \arg\max_v \|E_{u,v}\|_2$
-
-
-## Training Network
-
-![](./figs/fig4.png)
-
-Training BriLLM involves constructing a dedicated neural network for each sequence sample. The network connects input nodes sequentially, with all potential paths integrated into a final softmax layer that identifies the correct path via cross-entropy loss optimization.
-
-
-## Implementation Details
-
-BriLLM is implemented using PyTorch. It uses sinusoidal positional encoding, GeLU as the activation function, cross-entropy loss for next-token prediction, and an embedding size of $d_{model} = 32$. We used the AdamW optimizer with $\beta_1 = 0.9$, $\beta_2 = 0.999$ and $\epsilon = 10^{-8}$. The model size is about $512 + 4000 * 4000 * (32 * 32 + 32) \approx 16B$. We trained our models on one machine with 8 NVIDIA A800 GPUs for 1.5k steps.
-
-![](./figs/fig5.png)
-
-
-BriLLM leverages sparse token co-occurrence: most bigrams are low-frequency or absent, allowing shared parameters for inactive edges. Low-frequency bigrams use a fixed, non-updated matrix, reducing model size to 2B (Chinese) and 1B (English)—13.0\% and 5.7\% of the original size, respectively. This reduces parameters by ~90\% while accelerating training.
-
-![](./figs/tab2.png)
-
-
-## Case Study
-
-### Chinese Examples
-![](./figs/tab3.png)
-
-
-### English Examples  
-![](./figs/tab4.png)
-
-
-## Comparison: Traditional LLMs vs BriLLM
-
-![](./figs/tab5.png)
-
-
-## Installation
-
-```bash
-pip install torch
-```
-
-
-## Model Checkpoints
-
-[BriLLM0.5](https://huggingface.co/BriLLM/BriLLM0.5)
-
-
-## Training
-
-### BriLLM-Chinese
-```bash
-bash run_zh.sh
-```
-
-### BriLLM-English
 ```bash
 bash run_en.sh
 ```
 
+The script calls `train.py`, which generates synthetic signal flows using the
+selected vocabulary, trains V-SiFu with the VSFO objective and stores the
+checkpoint under `checkpoints/`.
 
-## Inference
+Run inference with the trained weights:
 
-### BriLLM-Chinese
-```python
-import json
-import torch
-from model import BraLM, Vocab
-
-with open("vocab_wiki_4k.json") as f:
-     node_dict = json.load(f)
-vocab = Vocab.from_node_dict(node_dict)
-
-with open('word_frequency.json', 'r') as f:
-    freq_dict = json.load(f)
-
-zero_freq_edges = {}
-for s in freq_dict:
-    zero_freq_edges[s] = []
-    for t in freq_dict[s]:
-        if freq_dict[s][t] == 0:
-            zero_freq_edges[s].append(t)
-
-model = BraLM(hidden_size=32, zero_freq_edges=zero_freq_edges, vocab=vocab)
-model.prepare_network(vocab)
-
-state_dict = torch.load("model_zh.bin", weights_only=True)
-model.load_state_dict(state_dict)
-model.to_device("cuda:6")
-
-head = "《罗马》描述了"
-max_token = 32 - len(head)
-
-start = [vocab((head[i]+ '->' +head[i+1])) for i in range(len(head)-1)]
-ret = model.decode(start, vocab, max_token)
-decode_tuple_list = [vocab.decode(p) for p in ret]
-decode_sentence = decode_tuple_list[0][0] + "".join([p[-1] for p in decode_tuple_list])
-
-print(decode_sentence)
+```bash
+python infer_en.py \
+  --checkpoint checkpoints/vsifu_en.pt \
+  --vocab vocab_wiki_4k_en.json
 ```
 
-### BriLLM-English
-```python
-import json
-import torch
-from model import BraLM, Vocab
-from tokenizers import Tokenizer
+The inference script samples a synthetic context, performs variational
+transport attention, and prints the top candidate nodes together with the
+transport-plan mass for each source→target route.
 
-bpe_tokenizer = Tokenizer.from_file("wiki_bpe_tokenizer_4000_bytelevel.json")
+## Training with custom data
 
-def decode_en_sentence(head, max_token=32, do_sample=False):
-    bpe_tokens = bpe_tokenizer.encode(head).tokens
-    if len(bpe_tokens) < 2:
-        return head
-    start = [vocab((bpe_tokens[i] + '->' + bpe_tokens[i+1])) for i in range(len(bpe_tokens)-1)]
-    ret = model.decode(start, vocab, max_token, do_sample)
-    decode_tuple_list = [vocab.decode(p).split('->') for p in ret]
-    decode_sentence = decode_tuple_list[0][0] + "".join([p[-1] for p in decode_tuple_list])
-    return decode_sentence
+`train.py` expects a dataset that yields the following tensors per sample:
 
-with open("./vocab_wiki_4k_en.json") as f:
-     node_dict = json.load(f)
-vocab = Vocab.from_node_dict(node_dict)
+- `history`: `(T, d)` tensor of historical signal vectors for the VAE.
+- `source_indices`: `(k,)` long tensor identifying active source nodes.
+- `source_signals`: `(k, d)` tensor containing the associated signal states.
+- `candidate_indices`: `(m,)` long tensor with candidate target nodes.
+- `target_vector`: `(d,)` target semantic vector.
+- `target_index`: scalar long tensor referencing the ground-truth node.
 
-model = BraLM(hidden_size=32)
-model.prepare_network(vocab)
+`SyntheticSignalDataset` in `train.py` demonstrates the required structure.
+Custom datasets can subclass `torch.utils.data.Dataset` to produce the same
+fields and be plugged directly into the training loop.
 
-state_dict = torch.load("model_en.bin", weights_only=True)
-model.load_state_dict(state_dict)
-model.to_device("cuda:6")
+## Architectural notes
 
-head = "In frogs, the hind legs are larger"
-encoding = bpe_tokenizer.encode(head)
-token_len = len(encoding.ids)
-max_token = 32 - token_len
-decode_sentence = decode_en_sentence(head, max_token).replace("Ġ", " ")
+- **Variational workspace:** `VariationalSignalEncoder` encodes the history
+  via a GRU and optimises the ELBO.  The KL term corresponds to the
+  information bottleneck constraint described in the paper.
+- **VETA:** `SinkhornSolver` computes the entropic OT plan `Π` between the
+  energy-derived source distribution and the latent-conditioned target prior.
+- **Next-vector generation:** edge transforms `W_{ij}` are factorised through
+  source/target node embeddings.  The transport-weighted sum is projected onto
+  the span of reachable edge outputs to respect the SiFu interpretability
+  constraint.
+- **VSFO objective:** the loss unifies reconstruction, KL, path regularisation
+  and prototype consistency, mirroring Eq. (9) of the note.
 
-print(decode_sentence)
-```
+## Checkpoints
+
+Training scripts save checkpoints as PyTorch dictionaries containing the model
+state and the configuration used to create it.  Load them with
+`torch.load(checkpoint)['model_state_dict']` and feed the resulting state into
+`VSiFuModel.load_state_dict`.
+
+## License
+
+This repository follows the original BriLLM release terms.
