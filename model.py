@@ -233,11 +233,12 @@ class VSiFuModel(nn.Module):
         tgt_linear = self.target_linear(target_indices).view(batch, n_tgt, self.signal_dim, self.signal_dim)
 
         # Effective matrix is src_linear @ tgt_linear^T
-        combined = torch.matmul(src_linear.unsqueeze(2), tgt_linear.transpose(-2, -1).unsqueeze(1))
+        tgt_transposed = tgt_linear.transpose(-2, -1)
+        combined = torch.einsum("bsij,btjk->bstik", src_linear, tgt_transposed)
 
         # Apply to source signals.
         intermediate = torch.einsum("bsd,bsde->bse", source_signals, src_linear)
-        edge_linear = torch.matmul(intermediate.unsqueeze(2), tgt_linear.transpose(-2, -1).unsqueeze(1)).squeeze(-2)
+        edge_linear = torch.einsum("bsi,btij->bstj", intermediate, tgt_transposed)
 
         bias_src = self.source_bias(source_indices)
         bias_tgt = self.target_bias(target_indices)
